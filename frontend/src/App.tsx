@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { registerUser, loginUser, logoutUser, getCurrentUser  } from "./lib/api";
 import {
   BrowserRouter,
@@ -63,6 +63,15 @@ const leads = [
   { name: "Neha Singh", email: "neha@gmail.com", company: "Creative Studio", status: "New", amount: "₹18,000", color: "blue" },
 ];
 
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const token = sessionStorage.getItem("auth_token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function Login() {
   const navigate = useNavigate();
@@ -596,7 +605,12 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+              }
+        />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
