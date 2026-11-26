@@ -148,3 +148,131 @@ export const getDashboardData = async (token: string) => {
   return result as DashboardResponse;
 };
 
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  type: string;
+  priority: string;
+  status: string;
+  due_at: string | null;
+  assigned_to: number | null;
+  created_by: number | null;
+  created_at: string;
+}
+
+export interface TaskResponse {
+  status: boolean;
+  message: string;
+  data: Task;
+}
+
+export interface TaskListResponse {
+  status: boolean;
+  message: string;
+  data: {
+    data: Task[];
+    current_page: number;
+    last_page: number;
+    total: number;
+  };
+}
+// Get all tasks
+export const getTasks = async (token: string) => {
+  const response = await fetch(`${API_URL}/tasks`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to fetch tasks");
+  }
+
+  return result as TaskListResponse;
+};
+
+// Create task
+export const createTask = async (
+  token: string,
+  data: {
+    title: string;
+    description?: string;
+    type: string;
+    priority: string;
+    due_at?: string;
+  }
+) => {
+  const response = await fetch(`${API_URL}/tasks`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to create task");
+  }
+
+  return result as TaskResponse;
+};
+
+// Update task
+export const updateTask = async (
+  token: string,
+  id: number,
+  data: Partial<{
+    title: string;
+    description: string;
+    type: string;
+    priority: string;
+    status: string;
+    due_at: string;
+  }>
+) => {
+  const response = await fetch(`${API_URL}/tasks/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to update task");
+  }
+
+  return result as TaskResponse;
+};
+
+// Delete task
+export const deleteTask = async (token: string, id: number) => {
+  const response = await fetch(`${API_URL}/tasks/${id}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to delete task");
+  }
+
+  return result;
+};
+

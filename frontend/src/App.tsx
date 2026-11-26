@@ -1,6 +1,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
-import { registerUser, loginUser, logoutUser, getCurrentUser, getDashboardData  } from "./lib/api";
+import Tasks from "./components/Tasks";
+import { registerUser, loginUser, logoutUser, getCurrentUser, getDashboardData, createTask,updateTask   } from "./lib/api";
 import {
   BrowserRouter,
   Routes,
@@ -31,6 +32,7 @@ import {
   Sparkles,
   MoreHorizontal,
   CalendarDays,
+  CheckCircle,
 } from "lucide-react";
 
 import {
@@ -374,6 +376,15 @@ function Sidebar({ close, onLogout }: { close: () => void; onLogout: () => void 
 
 function Dashboard() {
   const navigate = useNavigate();
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskType, setTaskType] = useState("follow_up");
+  const [taskPriority, setTaskPriority] = useState("medium");
+  const [taskDueAt, setTaskDueAt] = useState("");
+
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskError, setTaskError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
 
   const [dashboardData, setDashboardData] = useState({
@@ -537,6 +548,86 @@ useEffect(() => {
 
 
 
+const handleCreateTask = async (
+  event: React.FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
+
+  const token = sessionStorage.getItem("auth_token");
+
+  if (!token) {
+    setTaskError("Session expired. Please login again.");
+    return;
+  }
+
+  setTaskSaving(true);
+  setTaskError("");
+
+  try {
+    await createTask(token, {
+      title: taskTitle,
+      description: taskDescription,
+      type: taskType,
+      priority: taskPriority,
+      due_at: taskDueAt
+        ? new Date(taskDueAt).toISOString()
+        : undefined,
+    });
+
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskType("follow_up");
+    setTaskPriority("medium");
+    setTaskDueAt("");
+    setShowTaskModal(false);
+
+    // Refresh dashboard data
+    const dashboardResponse = await getDashboardData(token);
+
+    setDashboardData({
+      total_leads: dashboardResponse.data.total_leads,
+      total_customers: dashboardResponse.data.total_customers,
+      open_tasks: dashboardResponse.data.open_tasks,
+    });
+
+    setUpcomingTasks(dashboardResponse.data.upcoming_tasks);
+
+  } catch (error) {
+    setTaskError(
+      error instanceof Error
+        ? error.message
+        : "Unable to create task."
+    );
+  } finally {
+    setTaskSaving(false);
+  }
+};
+
+const handleCompleteTask = async (taskId: number) => {
+  try {
+    const token = sessionStorage.getItem("auth_token");
+
+    if (!token) {
+      throw new Error("Please login again.");
+    }
+
+    await updateTask(token, taskId, {
+      status: "completed",
+    });
+
+    const response = await getDashboardData(token);
+
+    if (response.status) {
+      setDashboardData(response.data);
+      setUpcomingTasks(response.data.upcoming_tasks);
+      setRecentLeads(response.data.recent_leads);
+    }
+  } catch (error) {
+    console.error("Task completion failed:", error);
+    alert("Unable to complete task. Please try again.");
+  }
+};
+
   return (
     <div className="app-layout">
       {menuOpen && <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />}
@@ -661,7 +752,8 @@ useEffect(() => {
                   <h3>Upcoming tasks</h3>
                   <p>Your pending activities</p>
                 </div>
-                <button className="text-btn">View all</button>
+                <button className="text-btn"
+                 onClick={() => navigate("/tasks")}>View all</button>
               </div>
 
               {upcomingTasks.length > 0 ? (
@@ -690,13 +782,23 @@ useEffect(() => {
                     <span className={`priority ${task.priority.toLowerCase()}`}>
                       {task.priority}
                     </span>
+                    <button
+                    className="complete-task-btn"
+                    onClick={() => handleCompleteTask(task.id)}
+                    title="Mark as completed"
+                  >
+                    <CheckCircle size={15} />
+                    Complete
+                  </button>
                   </div>
                 ))
               ) : (
                 <p className="muted">No upcoming tasks found.</p>
               )}
 
-              <button className="add-task">
+              <button className="add-task"
+              onClick={() => setShowTaskModal(true)}
+              >
                 <Plus size={16} /> Add a new task
               </button>
             </section>
@@ -778,6 +880,120 @@ useEffect(() => {
 </section>
 
 
+          {showTaskModal && (
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h2>Create New Task</h2>
+                    <p>Add a new activity to your CRM</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="modal-close"
+                    onClick={() => {
+                      setShowTaskModal(false);
+                      setTaskError("");
+                    }}
+                    aria-label="Close task form"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateTask}>
+                  <div className="form-group">
+                    <label htmlFor="task-title">Task Title *</label>
+                    <input
+                      id="task-title"
+                      type="text"
+                      placeholder="Enter task title"
+                      value={taskTitle}
+                      onChange={(event) => setTaskTitle(event.target.value)}
+                      maxLength={255}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="task-description">Description</label>
+                    <textarea
+                      id="task-description"
+                      placeholder="Enter task description"
+                      value={taskDescription}
+                      onChange={(event) => setTaskDescription(event.target.value)}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="task-type">Task Type</label>
+                      <select
+                        id="task-type"
+                        value={taskType}
+                        onChange={(event) => setTaskType(event.target.value)}
+                      >
+                        <option value="follow_up">Follow Up</option>
+                        <option value="call">Call</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="task-priority">Priority</label>
+                      <select
+                        id="task-priority"
+                        value={taskPriority}
+                        onChange={(event) => setTaskPriority(event.target.value)}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="task-due-at">Due Date &amp; Time</label>
+                    <input
+                      id="task-due-at"
+                      type="datetime-local"
+                      value={taskDueAt}
+                      onChange={(event) => setTaskDueAt(event.target.value)}
+                    />
+                  </div>
+
+                  {taskError && (
+                    <p className="form-error" role="alert">{taskError}</p>
+                  )}
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="cancel-btn"
+                      onClick={() => {
+                        setShowTaskModal(false);
+                        setTaskError("");
+                      }}
+                      disabled={taskSaving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="submit-btn"
+                      disabled={taskSaving}
+                    >
+                      {taskSaving ? "Creating..." : "Create Task"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           <footer className="dashboard-footer">© 2026 SmartCRM AI <span>Built for smarter customer relationships.</span></footer>
         </div>
       </main>
@@ -798,6 +1014,12 @@ function App() {
             </ProtectedRoute>
               }
         />
+        <Route path="/tasks" element={
+              <ProtectedRoute>
+                <Tasks />
+              </ProtectedRoute>
+            }
+          />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
