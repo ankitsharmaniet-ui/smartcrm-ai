@@ -97,3 +97,54 @@ export const getCurrentUser = async (token: string) => {
 
   return result as CurrentUserResponse;
 };
+
+
+export interface DashboardResponse {
+  status: boolean;
+  message: string;
+  data: {
+    total_leads: number;
+    total_customers: number;
+    open_tasks: number;
+    monthly_performance: {
+      month: string;
+      leads: number;
+      customers: number;
+    }[];
+    upcoming_tasks: {
+      id: number;
+      title: string;
+      due_at: string;
+      priority: string;
+      status: string;
+      assigned_to: string | null;
+    }[];
+    recent_leads: {
+      id: number;
+      name: string;
+      email: string | null;
+      company: string | null;
+      status: string;
+      source: string | null;
+    }[];
+  };
+}
+
+export const getDashboardData = async (token: string) => {
+  const response = await fetch(`${API_URL}/dashboard`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to fetch dashboard data");
+  }
+
+  return result as DashboardResponse;
+};
+

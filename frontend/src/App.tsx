@@ -1,6 +1,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
-import { registerUser, loginUser, logoutUser, getCurrentUser  } from "./lib/api";
+import { registerUser, loginUser, logoutUser, getCurrentUser, getDashboardData  } from "./lib/api";
 import {
   BrowserRouter,
   Routes,
@@ -45,23 +45,23 @@ import {
 
 import "./App.css";
 
-const chartData = [
-  { month: "Jan", leads: 120, customers: 75 },
-  { month: "Feb", leads: 180, customers: 110 },
-  { month: "Mar", leads: 150, customers: 95 },
-  { month: "Apr", leads: 260, customers: 170 },
-  { month: "May", leads: 220, customers: 150 },
-  { month: "Jun", leads: 320, customers: 230 },
-  { month: "Jul", leads: 390, customers: 280 },
-];
+// const chartData = [
+//   { month: "Jan", leads: 120, customers: 75 },
+//   { month: "Feb", leads: 180, customers: 110 },
+//   { month: "Mar", leads: 150, customers: 95 },
+//   { month: "Apr", leads: 260, customers: 170 },
+//   { month: "May", leads: 220, customers: 150 },
+//   { month: "Jun", leads: 320, customers: 230 },
+//   { month: "Jul", leads: 390, customers: 280 },
+// ];
 
 
-const leads = [
-  { name: "Rahul Sharma", email: "rahul@gmail.com", company: "Tech Solutions", status: "New", amount: "₹25,000", color: "blue" },
-  { name: "Priya Verma", email: "priya@gmail.com", company: "Digital World", status: "Contacted", amount: "₹42,000", color: "purple" },
-  { name: "Amit Kumar", email: "amit@gmail.com", company: "Soft Tech", status: "Qualified", amount: "₹65,000", color: "green" },
-  { name: "Neha Singh", email: "neha@gmail.com", company: "Creative Studio", status: "New", amount: "₹18,000", color: "blue" },
-];
+// const leads = [
+//   { name: "Rahul Sharma", email: "rahul@gmail.com", company: "Tech Solutions", status: "New", amount: "₹25,000", color: "blue" },
+//   { name: "Priya Verma", email: "priya@gmail.com", company: "Digital World", status: "Contacted", amount: "₹42,000", color: "purple" },
+//   { name: "Amit Kumar", email: "amit@gmail.com", company: "Soft Tech", status: "Qualified", amount: "₹65,000", color: "green" },
+//   { name: "Neha Singh", email: "neha@gmail.com", company: "Creative Studio", status: "New", amount: "₹18,000", color: "blue" },
+// ];
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const token = sessionStorage.getItem("auth_token");
@@ -376,12 +376,83 @@ function Dashboard() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const [dashboardData, setDashboardData] = useState({
+    total_leads: 0,
+    total_customers: 0,
+    open_tasks: 0,
+  });
+  const [chartData, setChartData] = useState<
+    {
+      month: string;
+      leads: number;
+      customers: number;
+    }[]
+  >([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<
+    {
+      id: number;
+      title: string;
+      due_at: string;
+      priority: string;
+      status: string;
+      assigned_to: string | null;
+    }[]
+  >([]);
+  const [recentLeads, setRecentLeads] = useState<
+    {
+      id: number;
+      name: string;
+      email: string | null;
+      company: string | null;
+      status: string;
+      source: string | null;
+    }[]
+  >([]);
+
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  // const stats = [
+  //   { title: "Total Leads", value: "2,450", change: "+12.8%", icon: Users, tone: "blue", positive: true },
+  //   { title: "Total Customers", value: "1,240", change: "+8.2%", icon: UserRound, tone: "purple", positive: true },
+  //   { title: "Open Tasks", value: "48", change: "-3.4%", icon: CheckSquare, tone: "orange", positive: false },
+  //   { title: "Revenue", value: "₹8.45L", change: "+18.6%", icon: BarChart3, tone: "green", positive: true },
+  // ];
+
   const stats = [
-    { title: "Total Leads", value: "2,450", change: "+12.8%", icon: Users, tone: "blue", positive: true },
-    { title: "Total Customers", value: "1,240", change: "+8.2%", icon: UserRound, tone: "purple", positive: true },
-    { title: "Open Tasks", value: "48", change: "-3.4%", icon: CheckSquare, tone: "orange", positive: false },
-    { title: "Revenue", value: "₹8.45L", change: "+18.6%", icon: BarChart3, tone: "green", positive: true },
+    {
+      title: "Total Leads",
+      value: dashboardLoading ? "..." : dashboardData.total_leads.toLocaleString("en-IN"),
+      change: "Live database",
+      icon: Users,
+      tone: "blue",
+      positive: true,
+    },
+    {
+      title: "Total Customers",
+      value: dashboardLoading ? "..." : dashboardData.total_customers.toLocaleString("en-IN"),
+      change: "Live database",
+      icon: UserRound,
+      tone: "purple",
+      positive: true,
+    },
+    {
+      title: "Open Tasks",
+      value: dashboardLoading ? "..." : dashboardData.open_tasks.toLocaleString("en-IN"),
+      change: "Live database",
+      icon: CheckSquare,
+      tone: "orange",
+      positive: true,
+    },
+    {
+      title: "Revenue",
+      value: "—",
+      change: "Not configured",
+      icon: BarChart3,
+      tone: "green",
+      positive: true,
+    },
   ];
+
 
 
     async function handleLogout() {
@@ -428,6 +499,41 @@ useEffect(() => {
     });
 }, [navigate]);
 
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("auth_token");
+
+    if (!token) {
+      setDashboardLoading(false);
+      return;
+    }
+
+    getDashboardData(token)
+  .then((response) => {
+    setDashboardData({
+      total_leads: response.data.total_leads,
+      total_customers: response.data.total_customers,
+      open_tasks: response.data.open_tasks,
+    });
+
+    setChartData(response.data.monthly_performance);
+
+    setRecentLeads(response.data.recent_leads);
+    setUpcomingTasks(response.data.upcoming_tasks);
+
+    setDashboardError("");
+  })
+      .catch((error) => {
+        setDashboardError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load dashboard data"
+        );
+      })
+      .finally(() => {
+        setDashboardLoading(false);
+      });
+  }, []);
 
 
 
@@ -490,7 +596,11 @@ useEffect(() => {
             </div>
             <button className="primary-btn"><Plus size={18} /> Add new lead</button>
           </div>
-
+            {dashboardError && (
+              <p role="alert" style={{ color: "#dc2626", marginBottom: "15px" }}>
+                {dashboardError}
+              </p>
+            )}
           <div className="stats-grid">
             {stats.map(stat => (
               <div className="stat-card" key={stat.title}>
@@ -544,52 +654,129 @@ useEffect(() => {
               </div>
             </section>
 
+            
             <section className="panel tasks-panel">
               <div className="panel-heading">
-                <div><h3>Upcoming tasks</h3><p>Your pending activities</p></div>
+                <div>
+                  <h3>Upcoming tasks</h3>
+                  <p>Your pending activities</p>
+                </div>
                 <button className="text-btn">View all</button>
               </div>
-              <div className="task-item">
-                <span className="task-check" />
-                <div><strong>Follow up with Rahul</strong><small><CalendarDays size={13} /> Today, 11:30 AM</small></div>
-                <span className="priority high">High</span>
-              </div>
-              <div className="task-item">
-                <span className="task-check" />
-                <div><strong>Send proposal to Priya</strong><small><CalendarDays size={13} /> Today, 02:00 PM</small></div>
-                <span className="priority medium">Medium</span>
-              </div>
-              <div className="task-item">
-                <span className="task-check" />
-                <div><strong>Team sales meeting</strong><small><CalendarDays size={13} /> Tomorrow, 10:00 AM</small></div>
-                <span className="priority low">Low</span>
-              </div>
-              <button className="add-task"><Plus size={16} /> Add a new task</button>
+
+              {upcomingTasks.length > 0 ? (
+                upcomingTasks.map((task) => (
+                  <div className="task-item" key={task.id}>
+                    <span className="task-check" />
+
+                    <div>
+                      <strong>{task.title}</strong>
+
+                      <small>
+                        <CalendarDays size={13} />
+                        {new Date(task.due_at).toLocaleString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </small>
+
+                      <small>
+                        Assigned to: {task.assigned_to || "Unassigned"}
+                      </small>
+                    </div>
+
+                    <span className={`priority ${task.priority.toLowerCase()}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="muted">No upcoming tasks found.</p>
+              )}
+
+              <button className="add-task">
+                <Plus size={16} /> Add a new task
+              </button>
             </section>
+
           </div>
 
-          <section className="panel leads-panel">
-            <div className="panel-heading">
-              <div><h3>Recent leads</h3><p>Keep track of your latest prospects</p></div>
-              <button className="text-btn">View all leads <ArrowUpRight size={15} /></button>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>CONTACT</th><th>COMPANY</th><th>STATUS</th><th>DEAL VALUE</th><th></th></tr></thead>
-                <tbody>
-                  {leads.map(lead => (
-                    <tr key={lead.email}>
-                      <td><div className="lead-contact"><div className={`lead-avatar ${lead.color}`}>{lead.name.split(" ").map(n => n[0]).join("")}</div><div><strong>{lead.name}</strong><small>{lead.email}</small></div></div></td>
-                      <td>{lead.company}</td>
-                      <td><span className={`status ${lead.status.toLowerCase()}`}>{lead.status}</span></td>
-                      <td><strong>{lead.amount}</strong></td>
-                      <td><button className="dots-btn"><MoreHorizontal size={18} /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          
+<section className="panel leads-panel">
+  <div className="panel-heading">
+    <div>
+      <h3>Recent leads</h3>
+      <p>Keep track of your latest prospects</p>
+    </div>
+    <button className="text-btn">
+      View all leads <ArrowUpRight size={15} />
+    </button>
+  </div>
+
+  <div className="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>CONTACT</th>
+          <th>COMPANY</th>
+          <th>STATUS</th>
+          <th>SOURCE</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {recentLeads.length > 0 ? (
+          recentLeads.map((lead) => (
+            <tr key={lead.id}>
+              <td>
+                <div className="lead-contact">
+                  <div className="lead-avatar blue">
+                    {lead.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+
+                  <div>
+                    <strong>{lead.name}</strong>
+                    <small>{lead.email || "No email available"}</small>
+                  </div>
+                </div>
+              </td>
+
+              <td>{lead.company || "N/A"}</td>
+
+              <td>
+                <span className={`status ${lead.status.toLowerCase()}`}>
+                  {lead.status}
+                </span>
+              </td>
+
+              <td>{lead.source || "N/A"}</td>
+
+              <td>
+                <button className="dots-btn">
+                  <MoreHorizontal size={18} />
+                </button>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan={5} style={{ textAlign: "center" }}>
+              No recent leads found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 
           <footer className="dashboard-footer">© 2026 SmartCRM AI <span>Built for smarter customer relationships.</span></footer>
         </div>
