@@ -1,6 +1,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Tasks from "./components/Tasks";
+import Leads from "./components/Leads";
 import { registerUser, loginUser, logoutUser, getCurrentUser, getDashboardData, createTask,updateTask   } from "./lib/api";
 import {
   BrowserRouter,
@@ -1017,6 +1018,12 @@ function App() {
         <Route path="/tasks" element={
               <ProtectedRoute>
                 <Tasks />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/leads" element={
+              <ProtectedRoute>
+                <Leads />
               </ProtectedRoute>
             }
           />

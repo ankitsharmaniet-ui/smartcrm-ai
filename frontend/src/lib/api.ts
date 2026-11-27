@@ -276,3 +276,196 @@ export const deleteTask = async (token: string, id: number) => {
   return result;
 };
 
+
+
+// ===============================
+// LEAD MANAGEMENT APIs
+// ===============================
+
+export interface Lead {
+  id: number;
+  organization_id: number;
+  assigned_to: number | null;
+  first_name: string;
+  last_name: string | null;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  job_title: string | null;
+  source: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned_user?: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+}
+
+export interface LeadResponse {
+  status: boolean;
+  message: string;
+  data: Lead;
+}
+
+export interface LeadListResponse {
+  status: boolean;
+  message: string;
+  data: {
+    data: Lead[];
+    current_page: number;
+    last_page: number;
+    total: number;
+  };
+}
+
+export interface LeadInput {
+  first_name: string;
+  last_name?: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  job_title?: string;
+  source?: string;
+  status?: string;
+  notes?: string;
+  assigned_to?: number | null;
+}
+
+// Get all leads with optional filters
+export const getLeads = async (
+  token: string,
+  filters?: {
+    search?: string;
+    status?: string;
+    source?: string;
+    assigned_to?: number;
+    page?: number;
+  }
+) => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") {
+      params.append(key, String(value));
+    }
+  });
+
+  const query = params.toString();
+  const url = `${API_URL}/leads${query ? `?${query}` : ""}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to fetch leads");
+  }
+
+  return result as LeadListResponse;
+};
+
+// Create lead
+export const createLead = async (
+  token: string,
+  data: LeadInput
+) => {
+  const response = await fetch(`${API_URL}/leads`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to create lead");
+  }
+
+  return result as LeadResponse;
+};
+
+// Update lead
+export const updateLead = async (
+  token: string,
+  id: number,
+  data: Partial<LeadInput>
+) => {
+  const response = await fetch(`${API_URL}/leads/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to update lead");
+  }
+
+  return result as LeadResponse;
+};
+
+// Delete lead
+export const deleteLead = async (
+  token: string,
+  id: number
+) => {
+  const response = await fetch(`${API_URL}/leads/${id}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to delete lead");
+  }
+
+  return result;
+};
+
+export interface TeamUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export async function getUsers(token: string): Promise<{
+  status: boolean;
+  data: TeamUser[];
+}> {
+  const response = await fetch(`${API_URL}/users`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to load team members.");
+  }
+
+  return result;
+}
+
